@@ -1,0 +1,20 @@
+[tool.poetry]
+name = "igotchuu"
+version = "0.1.0"
+description = "Backup script wrapping Restic with btrfs snapshots and other goodies"
+authors = ["nyantec GmbH <oss@nyantec.com>"]
+license = "MirOS"
+
+[tool.poetry.dependencies]
+python = "^3.10"
+#pygobject3 = 
+pygobject = "^3.42.2"
+
+[tool.poetry.dev-dependencies]
+
+[tool.poetry.scripts]
+clockodo = "igotchuu.__main__:cli"
+
+[build-system]
+requires = ["poetry-core>=1.0.0"]
+build-backend = "poetry.core.masonry.api"
