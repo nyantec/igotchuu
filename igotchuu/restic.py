@@ -11,7 +11,7 @@ class Restic(subprocess.Popen):
             stdout=subprocess.PIPE,
             #stdin=subprocess.DEVNULL,
             text=True,
-            env={"RESTIC_PROGRESS_FPS": "30", **env},
+            env={"RESTIC_PROGRESS_FPS": "4", **env},
             **kwargs
         )
 

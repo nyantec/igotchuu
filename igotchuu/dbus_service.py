@@ -20,12 +20,13 @@ class DbusService:
         self.method_inargs = method_inargs
         self.method_outargs = method_outargs
         self.con = dbus
-        self.con.register_object(
+        self.registration_id = self.con.register_object(
             publish_path,
             self.node_info,
             self.handle_method_call,
             self.prop_getter,
-            self.prop_setter)
+            self.prop_setter
+        )
 
     def handle_method_call(
             self,
@@ -58,7 +59,6 @@ class DbusService:
         outargs = ''.join([_.signature
                            for _ in invocation.get_method_info().out_args])
         send_result = GLib.Variant(f'({outargs})', result)
-        logger.debug('Method %s result: %s', method_name, repr(send_result))
         invocation.return_value(send_result)
 
     def prop_getter(self,
@@ -68,8 +68,6 @@ class DbusService:
                     iface: str,
                     name: str):
         """Mehtod for moving properties from Python Class to D-Bus"""
-        logger.debug('prop_getter, %s, %s, %s, %s, %s',
-                     connection, sender, object, iface, name)
         py_value = self.__getattribute__(name)
         signature = self.node_info.lookup_property(name).signature
         if 'v' in signature:
@@ -87,7 +85,8 @@ class DbusService:
                     name: str,
                     value: GLib.Variant):
         """Method for moving properties between D-Bus and Python Class"""
-        logger.debug('prop_setter %s, %s, %s, %s, %s, %s',
-                     connection, sender, object, iface, name, value)
         self.__setattr__(name, value.unpack())
         return True
+
+    def unregister(self):
+        return self.con.unregister_object(self.registration_id)

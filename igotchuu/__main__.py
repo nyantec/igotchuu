@@ -81,23 +81,27 @@ class DBusBackupManagerInterface(igotchuu.dbus_service.DbusService):
     def __init__(self, dbus):
         super().__init__(dbus, self.introspection_xml, self.publish_path)
 
+    def Stop(self):
+        global restic
+        if restic is not None:
+            restic.terminate()
+
+
+backup_manager = None
+
 def on_bus_acquired(dbus, name):
-    # TODO Register objects here
-    #dbus.register_object(
-    #    "/com/nyantec/igotchuu",
-    #    Gio.DBusNodeInfo.new_for_xml(dbus_interface_xml).interfaces[0],
-    #    vtable_method_call_cb,
-    #    None, # vtable_get_property_cb
-    #    None  # vtable_set_property_cb
-    #)
-    pass
+    global backup_manager
+    backup_manager = DBusBackupManagerInterface(dbus)
 
 def on_name_acquired(dbus, name):
     bus_ready_barrier.wait()
 
 def on_name_lost(dbus, name):
     # TODO un-export objects
-    pass
+    global backup_manager
+    if backup_manager is not None:
+        backup_manager.unregister()
+        backup_manager = None
 
 # We could potentially own a DBus name here
 # This would allow:
@@ -108,7 +112,9 @@ igotchuu.glib_loop.GLibMainLoopThread().start()
 name = Gio.bus_own_name(
     Gio.BusType.SYSTEM, "com.nyantec.IGotChuu",
     Gio.BusNameOwnerFlags.DO_NOT_QUEUE,
-    on_name_acquired, on_name_lost
+    on_bus_acquired,
+    on_name_acquired,
+    on_name_lost
 )
 bus_ready_barrier.wait()
 # Retrieve the D-Bus connection again
@@ -130,14 +136,27 @@ with logind.inhibit("sleep:handle-lid-switch", "igotchuu", "Backup in progress",
         print("Running restic")
 
         restic = Restic.backup(places=["/home"], extra_args=[
-            "-x", "--exclude-caches", #"--dry-run",
+            "-x", "--exclude-caches", "--dry-run",
             "--exclude-file", "/home/vika/Projects/nix-flake/backup-exclude.txt"
         ])
-
+        dbus.emit_signal(
+            None,
+            "/com/nyantec/igotchuu",
+            "com.nyantec.igotchuu1",
+            "BackupStarted",
+            None
+        )
         for progress in restic.progress_iter():
-            #dbus.emit_signal(None, 
             if progress["message_type"] == "status":
-                # TODO use GDBusConnection.emit_signal() to stream progress to interested parties
+                dbus.emit_signal(
+                    None,
+                    "/com/nyantec/igotchuu",
+                    "com.nyantec.igotchuu1",
+                    "Progress",
+                    GLib.Variant.new_tuple(
+                        GLib.Variant.new_string(json.dumps(progress))
+                    )
+                )
                 if "seconds_remaining" not in progress:
                     # Scan isn't complete yet
                     print("[scan...]", end=" ")
@@ -148,7 +167,13 @@ with logind.inhibit("sleep:handle-lid-switch", "igotchuu", "Backup in progress",
                 print(f"{progress.get('bytes_done', 0) / (1024**3):5.2f}/{progress['total_bytes'] / (1024**3):5.2f}G uploaded", end=" ")
                 print("\r", end="")
             elif progress["message_type"] == "summary":
-                # TODO use GDBusConnection.emit_signal() to signal backup completion
+                dbus.emit_signal(
+                    None,
+                    "/com/nyantec/igotchuu",
+                    "com.nyantec.igotchuu1",
+                    "BackupComplete",
+                    None
+                )
                 print()
                 print(progress)
                 break
