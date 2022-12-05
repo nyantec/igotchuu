@@ -7,10 +7,38 @@
 
   outputs = { self, nixpkgs, flake-utils, poetry2nix }: {
     overlay = nixpkgs.lib.composeManyExtensions [
-      poetry2nix.overlay
+      #poetry2nix.overlay
       (final: prev: {
-        igotchuu = final.poetry2nix.mkPoetryApplication {
+        /*igotchuu = final.poetry2nix.mkPoetryApplication {
           projectDir = ./.;
+
+          buildInputs = with final; [ gobject-introspection ];
+          nativeBuildInputs = with final; [ wrapGAppsHook ];
+          overrides = final.poetry2nix.overrides.withDefaults (pyfinal: pyprev: {
+            inherit (prev.python310Packages) pycairo;
+          });
+
+          meta = {
+            mainProgram = "igotchuu";
+          };
+        };*/
+        igotchuu = final.python310Packages.buildPythonApplication {
+          name = "igotchuu";
+          version = "0.1.0";
+
+          src = final.poetry2nix.cleanPythonSources {
+            src = ./.;
+          };
+
+          buildInputs = with final; [ gobject-introspection ];
+          nativeBuildInputs = with final; [ wrapGAppsHook ];
+          propagatedBuildInputs = with final.python310Packages; [
+            pygobject3
+          ];
+
+          postInstall = ''
+            install -Dm644 ./dbus-policy.conf $out/share/dbus-1/system.d/com.nyantec.IGotChuu.conf
+          '';
 
           meta = {
             mainProgram = "igotchuu";
@@ -39,6 +67,7 @@
       nativeBuildInputs = (old.nativeBuildInputs or []) ++ (with pkgs; [
         poetry
       ]);
+      buildInputs = with pkgs; [ gobject-introspection ];
     });
   }));
 }
