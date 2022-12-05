@@ -85,6 +85,7 @@ def verbose(*args, **kwargs):
 @reexec
 def cli():
     bus_ready_barrier = threading.Barrier(2)
+    name_acquired = False
     backup_manager = None
 
     verbose("Preparing for backup...")
@@ -96,15 +97,22 @@ def cli():
         verbose("Created backup manager object:", backup_manager)
 
     def on_name_acquired(dbus, name):
+        nonlocal name_acquired
+        name_acquired = True
         verbose("Acquired bus name:", dbus, name)
         bus_ready_barrier.wait()
 
     def on_name_lost(dbus, name):
-        verbose("Lost bus name:", dbus, name)
-        nonlocal backup_manager
-        if backup_manager is not None:
-            backup_manager.unregister()
-            backup_manager = None
+        nonlocal name_acquired
+        if name_acquired:
+            verbose("Lost bus name:", dbus, name)
+            nonlocal backup_manager
+            if backup_manager is not None:
+                backup_manager.unregister()
+                backup_manager = None
+        else:
+            print("Cannot acquire name on the bus.", file=sys.stderr)
+            sys.exit(1)
 
     verbose("Starting glib main loop...")
     igotchuu.glib_loop.GLibMainLoopThread().start()
