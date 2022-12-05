@@ -27,8 +27,15 @@
           install -Dm644 ./dbus-policy.conf $out/share/dbus-1/system.d/com.nyantec.IGotChuu.conf
         '';
 
-        meta = {
+        meta = with final.lib; {
           mainProgram = "igotchuu";
+          homepage = "https://github.com/nyantec/igotchuu";
+          description = "Backup script wrapping Restic with btrfs snapshots and other goodies";
+          maintainers = with maintainers; [
+            vikanezrimaya
+          ];
+          license = licenses.miros;
+          platforms = platforms.linux;
         };
       };
     };
