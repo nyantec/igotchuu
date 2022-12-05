@@ -17,7 +17,7 @@
         buildInputs = with final; [ gobject-introspection ];
         nativeBuildInputs = with final; [ wrapGAppsHook ];
         propagatedBuildInputs = with final.python310Packages; [
-          pygobject3
+          pygobject3 btrfsutil
         ];
 
         # There are no tests for now
