@@ -135,7 +135,7 @@ def cli():
             verbose("Running restic...")
 
             backup_manager.restic = Restic.backup(places=["/home"], extra_args=[
-                "-x", "--exclude-caches", "--dry-run",
+                "-x", "--exclude-caches",
                 "--exclude-file", "/home/vika/Projects/nix-flake/backup-exclude.txt"
             ])
             dbus.emit_signal(
