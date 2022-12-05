@@ -20,6 +20,9 @@
           pygobject3
         ];
 
+        # There are no tests for now
+        doCheck = false;
+
         postInstall = ''
           install -Dm644 ./dbus-policy.conf $out/share/dbus-1/system.d/com.nyantec.IGotChuu.conf
         '';
