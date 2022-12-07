@@ -18,13 +18,12 @@
 import os
 import sys
 import datetime
-import subprocess
 import json
 import threading
 import functools
+import btrfsutil
 import gi
 from gi.repository import Gio, GLib
-import igotchuu.btrfs as btrfs
 import igotchuu.idle_inhibit
 import igotchuu.glib_loop
 import igotchuu.dbus_service
@@ -39,15 +38,12 @@ class DBusBackupManagerInterface(igotchuu.dbus_service.DbusService):
     <node name="/com/nyantec/igotchuu">
         <interface name="com.nyantec.igotchuu1">
             <method name="Stop"></method>
-            <signal name="Error">
-            </signal>
-            <signal name="BackupStarted">
-            </signal>
+            <signal name="Error"></signal>
+            <signal name="BackupStarted"></signal>
             <signal name="Progress">
                 <arg name="json_data" type="s"/>
             </signal>
-            <signal name="BackupComplete">
-            </signal>
+            <signal name="BackupComplete"></signal>
         </interface>
     </node>
     """
@@ -135,7 +131,7 @@ def cli():
         verbose("Creating snapshot...")
         # Create a filesystem snapshot that will be deleted later
         snapshot_path="/home-{}".format(datetime.datetime.now().strftime("%Y-%m-%dT%H:%M:%S%z"))
-        btrfs.create_snapshot("/home", snapshot_path, readonly=True)
+        btrfs.create_snapshot("/home", snapshot_path, read_only=True)
 
         try:
             verbose("Remounting home...")
@@ -189,5 +185,5 @@ def cli():
                 verbose("Waiting for restic to terminate...")
                 backup_manager.restic.wait()
             verbose("Deleting snapshot...")
-            btrfs.remove_snapshot(snapshot_path)
+            btrfsutil.delete_subvolume(snapshot_path)
             Gio.bus_unown_name(name)
