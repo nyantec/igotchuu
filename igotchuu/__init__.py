@@ -131,7 +131,7 @@ def cli():
         verbose("Creating snapshot...")
         # Create a filesystem snapshot that will be deleted later
         snapshot_path="/home-{}".format(datetime.datetime.now().strftime("%Y-%m-%dT%H:%M:%S%z"))
-        btrfs.create_snapshot("/home", snapshot_path, read_only=True)
+        btrfsutil.create_snapshot("/home", snapshot_path, read_only=True)
 
         try:
             verbose("Remounting home...")
