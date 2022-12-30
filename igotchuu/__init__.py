@@ -225,7 +225,10 @@ def cli():
                         print(f"[{progress['percent_done']: >7.2%}]", end=" ")
 
                     print(f"{progress.get('files_done', 0)}/{progress['total_files']} files", end=", ")
-                    print(f"{progress.get('bytes_done', 0) / (1024**3):5.2f}/{progress['total_bytes'] / (1024**3):5.2f}G uploaded", end=" ")
+                    if "total_bytes" in progress:
+                        print(f"{progress.get('bytes_done', 0) / (1024**3):5.2f}/{progress['total_bytes'] / (1024**3):5.2f}G uploaded", end=" ")
+                    else:
+                        print(f"{progress.get('bytes_done', 0) / (1024**3):5.2f}G uploaded", end=" ")
                     print("\r", end="")
                 elif progress["message_type"] == "summary":
                     dbus.emit_signal(
