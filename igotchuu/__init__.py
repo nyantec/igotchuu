@@ -19,6 +19,8 @@ import os
 import sys
 import datetime
 import json
+import argparse
+import tomllib
 import threading
 import functools
 import btrfsutil
@@ -74,12 +76,44 @@ def reexec(function):
 
     return _reexec
 
-def verbose(*args, **kwargs):
-    if "--verbose" in sys.argv:
-        print(*args, **kwargs, file=sys.stderr)
-
 @reexec
 def cli():
+    parser = argparse.ArgumentParser(
+        prog = 'igotchuu',
+        description = 'A backup software based on restic and btrfs snapshots'
+    )
+    parser.add_argument('-c', '--config-file', required=True)
+    parser.add_argument('-v', '--verbose', action="store_true")
+    args = parser.parse_args()
+
+    def verbose(*arguments, **kwargs):
+        if args.verbose:
+            print(*arguments, **kwargs, file=sys.stderr)
+
+    config = {
+        "places": ["/home"], "snapshot": ["/home"],
+        "restic_args": ["-x", "--exclude-caches"]
+    }
+    if "config_file" in args:
+        with open(args.config_file, "rb") as f:
+            config = tomllib.load(f)
+        if "places" not in config:
+            config["places"] = ["/home"]
+        if "snapshot" not in config:
+            config["snapshot"] = config["places"]
+        for place in config["places"]:
+            if place[0] != "/":
+                print("Error: paths in `sources` must be absolute, got", place)
+                exit(1)
+        if config["snapshot"] != config["places"]:
+            for snapshot in config["snapshots"]:
+                if isinstance(snapshot, str):
+                    snapshot = {"source": snapshot}
+                if snapshot["source"][0] != "/":
+                    print("Error: snapshot source paths must be absolute, got", snapshot["source"])
+                    exit(1)
+        verbose("Acquired config:", config)
+
     bus_ready_barrier = threading.Barrier(2)
     name_acquired = False
     backup_manager = None
@@ -128,20 +162,44 @@ def cli():
     logind = igotchuu.idle_inhibit.Logind(dbus)
 
     with logind.inhibit("sleep:handle-lid-switch", "igotchuu", "Backup in progress", "block"):
-        verbose("Creating snapshot...")
+        if "exec_before_snapshot" in config:
+            verbose("Executing", config["exec_before_snapshot"])
+            import subprocess
+            subprocess.run(config["exec_before_snapshot"])
+        verbose("Creating snapshots...")
         # Create a filesystem snapshot that will be deleted later
-        snapshot_path="/home-{}".format(datetime.datetime.now().strftime("%Y-%m-%dT%H:%M:%S%z"))
-        btrfsutil.create_snapshot("/home", snapshot_path, read_only=True)
+        timestamp = datetime.datetime.now()
+        for place in config["snapshot"]:
+            if isinstance(place, str):
+                place = {
+                    "source": place,
+                    "snapshot_location": os.path.join(config.get("snapshot_prefix", ""), place[1:])
+                }
+            
+            snapshot_path="{place}-{timestamp}".format(
+                place=place["source"],
+                timestamp=timestamp.strftime("%Y-%m-%dT%H:%M:%S%z")   
+            )
+            verbose("Creating snapshot for", place["source"], "at", snapshot_path)
+            os.makedirs(os.path.dirname(snapshot_path), exist_ok=True)
+            btrfsutil.create_snapshot(place["source"], snapshot_path, read_only=True)
 
         try:
-            verbose("Remounting home...")
-            mount(snapshot_path, "/home", flags=MountFlags.MS_BIND)
+            for place in config["snapshot"]:
+                if isinstance(place, str):
+                    place = {
+                        "source": place,
+                        "snapshot_location": os.path.join(config.get("snapshot_prefix", ""), place[1:])
+                    }
+                snapshot_path="{place}-{timestamp}".format(
+                    place=place["source"],
+                    timestamp=timestamp.strftime("%Y-%m-%dT%H:%M:%S%z")
+                )
+                verbose("Remounting {} to {}...".format(snapshot_path, place["source"]))
+                mount(snapshot_path, place["source"], flags=MountFlags.MS_BIND)
             verbose("Running restic...")
 
-            backup_manager.restic = Restic.backup(places=["/home"], extra_args=[
-                "-x", "--exclude-caches",
-                "--exclude-file", "/home/vika/Projects/nix-flake/backup-exclude.txt"
-            ])
+            backup_manager.restic = Restic.backup(places=config["places"], extra_args=config.get("restic_args", []))
             dbus.emit_signal(
                 None,
                 "/com/nyantec/igotchuu",
@@ -184,6 +242,19 @@ def cli():
             if backup_manager.restic is not None:
                 verbose("Waiting for restic to terminate...")
                 backup_manager.restic.wait()
-            verbose("Deleting snapshot...")
-            btrfsutil.delete_subvolume(snapshot_path)
+            verbose("Deleting snapshots...")
+            for place in config["snapshot"]:
+                if isinstance(place, str):
+                    place = {
+                        "source": place,
+                        "snapshot_location": os.path.join(
+                            config.get("snapshot_prefix", ""),
+                            place
+                        )
+                    }
+                snapshot_path="{place}-{timestamp}".format(
+                    place=place["source"],
+                    timestamp=timestamp.strftime("%Y-%m-%dT%H:%M:%S%z")   
+                )
+                btrfsutil.delete_subvolume(snapshot_path)
             Gio.bus_unown_name(name)

@@ -6,7 +6,7 @@
 
   outputs = { self, nixpkgs, flake-utils }: {
     overlay = final: prev: {
-      igotchuu = final.python310Packages.buildPythonApplication {
+      igotchuu = final.python311Packages.buildPythonApplication {
         name = "igotchuu";
         version = "0.1.0";
 
@@ -16,7 +16,7 @@
 
         buildInputs = with final; [ gobject-introspection ];
         nativeBuildInputs = with final; [ wrapGAppsHook ];
-        propagatedBuildInputs = with final.python310Packages; [
+        propagatedBuildInputs = with final.python311Packages; [
           pygobject3 btrfsutil
         ];
 

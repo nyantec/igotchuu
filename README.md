@@ -34,6 +34,52 @@ The algorithm of this script is as follows:
 3. Bind-mount `/home-<snapshot date>` to `/home`
 4. Run `restic` on `/home`
 
+## Config file
+The config file is a TOML file. Example:
+
+```toml
+# Executes a command before creating snapshots.
+# This is useful if your / is on a tmpfs, and stateful data is on btrfs,
+# and you need to mount your subvolume somewhere to create snapshots.
+exec_before_snapshot = ["mount", "/dev/mapper/root", "/mnt", "-o", "subvol=5"]
+# Prepends a prefix to all snapshot paths. This is useful if you want your
+snapshots to be contained elsewhere. This must not have a trailing slash.
+snapshot_prefix = "/mnt/snapshots"
+# Places you want to back up.
+places = ["/home", "/var/lib"]
+
+# Arguments that will be passed to Restic.
+#
+# `--one-file-system` is heavily recommended due to how igotchuu works with
+# subvolumes. In theory, if you need to back up a tree composed of several
+# filesystems, you should be able to list them all in `places` so they will
+# also be snapshotted.
+restic_args = [
+	"--one-file-system", "--exclude-caches",
+	"--exclude-file=/etc/igotchuu/exclude.txt"
+]
+# Snapshots that will be created and bind-mounted over your root hierarchy.
+# If not set, defaults to the value of `places`.
+#
+# Snapshotting all backup locations is heavily recommended to ensure
+# consistency of backups. It is surprising that restic only includes this
+# functionality on Windows.
+#
+# Note that the paths in `source` must be absolute.
+#
+# Creates a snapshot with the same name and a timestamp appended.
+[[snapshot]]
+source = "/home"
+# Creates a snapshot with a different name (and a timestamp).
+# This is useful sometimes.
+[[snapshot]]
+source = "/var/lib"
+# Override the location for the snapshot. `snapshot_prefix` will not be used.
+# However, a timestamp will still be appended to the snapshot name.
+snapshot_location = "/var-lib"
+
+```
+
 ## D-Bus interface
 This software can be controlled via D-Bus, to receive progress updates
 and stop an ongoing backup.
