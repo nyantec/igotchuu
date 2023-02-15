@@ -43,7 +43,7 @@ class DBusBackupManagerInterface(igotchuu.dbus_service.DbusService):
             <signal name="Error"></signal>
             <signal name="BackupStarted"></signal>
             <signal name="Progress">
-                <arg name="json_data" type="s"/>
+                <arg name="json_data" type="a{sv}"/>
             </signal>
             <signal name="BackupComplete"></signal>
         </interface>
@@ -209,14 +209,57 @@ def cli():
             )
             for progress in backup_manager.restic.progress_iter():
                 if progress["message_type"] == "status":
+                    # Map JSON progress keys to GLib.Variant
+                    # I wonder if there's a way to do this automatically?
+                    glib_progress = GLib.VariantBuilder.new("a{sv}")
+                    for key in keys(progress):
+                        if type(progress[key]) == int:
+                            glib_progress.add_value(
+                                GLib.Variant.new_dict_entry(
+                                    GLib.Variant.new_string(key)
+                                    GLib.Variant.new_variant(
+                                        GLib.Variant.new_int64(progress[key])
+                                    )
+                                )
+                            )
+                        elif type(progress[key]) == float:
+                            glib_progress.add_value(
+                                GLib.Variant.new_dict_entry(
+                                    GLib.Variant.new_string(key)
+                                    GLib.Variant.new_variant(
+                                        GLib.Variant.new_double(progress[key])
+                                    )
+                                )
+                            )
+                        elif type(progress[key]) == str:
+                            glib_progress.add_value(
+                                GLib.Variant.new_dict_entry(
+                                    GLib.Variant.new_string(key)
+                                    GLib.Variant.new_variant(
+                                        GLib.Variant.new_string(progress[key])
+                                    )
+                                )
+                            )
+                        elif key == "current_files":
+                            glib_progress.add_value(
+                                GLib.Variant.new_dict_entry(
+                                    GLib.Variant.new_string(key)
+                                    GLib.Variant.new_variant(
+                                        GLib.Variant.new_array(
+                                            GLib.VariantType.new("s"),
+                                            list(map(GLib.Variant.new_string, progress[key]))
+                                        )
+                                    )
+                                )
+                            )
+                        else:
+                            raise TypeError("Unknown key type: {} for {}".format(type(progress[key]), key))
                     dbus.emit_signal(
                         None,
                         "/com/nyantec/igotchuu",
                         "com.nyantec.igotchuu1",
                         "Progress",
-                        GLib.Variant.new_tuple(
-                            GLib.Variant.new_string(json.dumps(progress))
-                        )
+                        GLib.Variant.new_tuple(glib_progress.end())
                     )
                     if "seconds_remaining" not in progress:
                         # Scan isn't complete yet
