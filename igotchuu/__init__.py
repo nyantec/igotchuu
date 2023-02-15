@@ -216,7 +216,7 @@ def cli():
                         if type(progress[key]) == int:
                             glib_progress.add_value(
                                 GLib.Variant.new_dict_entry(
-                                    GLib.Variant.new_string(key)
+                                    GLib.Variant.new_string(key),
                                     GLib.Variant.new_variant(
                                         GLib.Variant.new_int64(progress[key])
                                     )
@@ -225,7 +225,7 @@ def cli():
                         elif type(progress[key]) == float:
                             glib_progress.add_value(
                                 GLib.Variant.new_dict_entry(
-                                    GLib.Variant.new_string(key)
+                                    GLib.Variant.new_string(key),
                                     GLib.Variant.new_variant(
                                         GLib.Variant.new_double(progress[key])
                                     )
@@ -234,7 +234,7 @@ def cli():
                         elif type(progress[key]) == str:
                             glib_progress.add_value(
                                 GLib.Variant.new_dict_entry(
-                                    GLib.Variant.new_string(key)
+                                    GLib.Variant.new_string(key),
                                     GLib.Variant.new_variant(
                                         GLib.Variant.new_string(progress[key])
                                     )
@@ -243,7 +243,7 @@ def cli():
                         elif key == "current_files":
                             glib_progress.add_value(
                                 GLib.Variant.new_dict_entry(
-                                    GLib.Variant.new_string(key)
+                                    GLib.Variant.new_string(key),
                                     GLib.Variant.new_variant(
                                         GLib.Variant.new_array(
                                             GLib.VariantType.new("s"),
