@@ -250,7 +250,7 @@ def cli():
                         GLib.Variant.new_tuple(
                             GLib.Variant.new_uint64(progress.get("seconds_elapsed", 0)),
                             GLib.Variant.new_uint64(progress.get("seconds_remaining", 0)),
-                            GLib.Variant.new_double(progress.get("percent_done", 0.0)),
+                            GLib.Variant.new_double(float(progress.get("percent_done", 0.0))),
                             GLib.Variant.new_uint64(progress.get("total_files", 0)),
                             GLib.Variant.new_uint64(progress.get("files_done", 0)),
                             GLib.Variant.new_uint64(progress.get("total_bytes", 0)),
@@ -265,7 +265,7 @@ def cli():
                             )
                         )
                     )
-                    if "seconds_remaining" not in progress:
+                    if "seconds_remaining" not in progress and progress.get("percent_done", 0.0) < 1.0:
                         # Scan isn't complete yet
                         print("[scan...]", end=" ")
                     else:
