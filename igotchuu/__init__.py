@@ -29,7 +29,6 @@ from gi.repository import Gio, GLib
 import igotchuu.idle_inhibit
 import igotchuu.glib_loop
 import igotchuu.dbus_service
-from igotchuu.glib_variant import to_glib_variant_dict
 from igotchuu.mount import mount, MountFlags
 from igotchuu.restic import Restic
 
@@ -43,11 +42,40 @@ class DBusBackupManagerInterface(igotchuu.dbus_service.DbusService):
             <method name="Stop"></method>
             <signal name="Error"></signal>
             <signal name="BackupStarted"></signal>
+            <!-- Signal payload mirrors structs found in Restic's source code
+                 https://github.com/restic/restic/blob/master/internal/ui/backup/json.go
+              -->
             <signal name="Progress">
-                <arg name="json_data" type="a{sv}"/>
+                <arg name="seconds_elapsed" type="t" />   <!-- uint64 -->
+                <arg name="seconds_remaining" type="t" />
+                <arg name="percent_done" type="d" />      <!-- float64 -->
+                <arg name="total_files" type="t" />
+                <arg name="files_done" type="t" />
+                <arg name="total_bytes" type="t" />
+                <arg name="bytes_done" type="t" />
+                <arg name="error_count" type="t" />       <!-- uint -->
+                <arg name="current_files" type="as" />    <!-- []string -->
             </signal>
             <signal name="BackupComplete">
-                <arg name="json_data" type="a{sv}"/>
+                <arg name="files_new" type="t" />
+                <arg name="files_changed" type="t" />
+                <arg name="files_unmodified" type="t" />
+                <arg name="dirs_new" type="t" />
+                <arg name="dirs_changed" type="t" />
+                <arg name="dirs_unmodified" type="t" />
+                <arg name="data_blobs" type="x" />        <!-- int -->
+                <arg name="tree_blobs" type="x" />
+                <arg name="data_added" type="t" />
+                <arg name="total_files_processed" type="t" />
+                <arg name="total_bytes_processed" type="t" />
+                <arg name="total_duration" type="d" />
+                <arg name="snapshot_id" type="s" />       <!-- string -->
+                <arg name="dry_run" type="b" />           <!-- bool -->
+            </signal>
+            <signal name="Error">
+              <arg name="error" type="s" />               <!-- error -->
+              <arg name="during" type="s" />
+              <arg name="item" type="s" />
             </signal>
         </interface>
     </node>
@@ -214,13 +242,28 @@ def cli():
                 if progress["message_type"] == "status":
                     # Map JSON progress keys to GLib.Variant
                     # I wonder if there's a way to do this automatically?
-                    verbose("Received status message from restic")
                     dbus.emit_signal(
                         None,
                         "/com/nyantec/igotchuu",
                         "com.nyantec.igotchuu1",
                         "Progress",
-                        GLib.Variant.new_tuple(to_glib_variant_dict(progress))
+                        GLib.Variant.new_tuple(
+                            GLib.Variant.new_uint64(progress.get("seconds_elapsed", 0)),
+                            GLib.Variant.new_uint64(progress.get("seconds_remaining", 0)),
+                            GLib.Variant.new_double(progress.get("percent_done", 0.0)),
+                            GLib.Variant.new_uint64(progress.get("total_files", 0)),
+                            GLib.Variant.new_uint64(progress.get("files_done", 0)),
+                            GLib.Variant.new_uint64(progress.get("total_bytes", 0)),
+                            GLib.Variant.new_uint64(progress.get("bytes_done", 0)),
+                            GLib.Variant.new_uint64(progress.get("error_count", 0)),
+                            GLib.Variant.new_array(
+                                GLib.VariantType.new("s"),
+                                list(map(
+                                    GLib.Variant.new_string,
+                                    progress.get("current_files", [])
+                                ))
+                            )
+                        )
                     )
                     if "seconds_remaining" not in progress:
                         # Scan isn't complete yet
@@ -234,16 +277,61 @@ def cli():
                     else:
                         print(f"{progress.get('bytes_done', 0) / (1024**3):5.2f}G uploaded", end=" ")
                     print("\r", end="")
+                elif progress["message_type"] == "error":
+                    dbus.emit_signal(
+                        None,
+                        "/com/nyantec/igotchuu",
+                        "com.nyantec.igotchuu1",
+                        "Error",
+                        GLib.Variant.new_tuple(
+                            GLib.Variant.new_string(progress["error"]),
+                            GLib.Variant.new_string(progress["during"]),
+                            GLib.Variant.new_string(progress["item"])
+                        )
+                    )
+                    print("")
+                    print("Error during {} of {}: {}".format(
+                        progress["during"], progress["item"], progress["error"]
+                    ))
                 elif progress["message_type"] == "summary":
                     dbus.emit_signal(
                         None,
                         "/com/nyantec/igotchuu",
                         "com.nyantec.igotchuu1",
                         "BackupComplete",
-                        GLib.Variant.new_tuple(to_glib_variant_dict(progress))
+                        GLib.Variant.new_tuple(
+                            GLib.Variant.new_uint64(progress["files_new"]),
+                            GLib.Variant.new_uint64(progress["files_changed"]),
+                            GLib.Variant.new_uint64(progress["files_unmodified"]),
+                            GLib.Variant.new_uint64(progress["dirs_new"]),
+                            GLib.Variant.new_uint64(progress["dirs_changed"]),
+                            GLib.Variant.new_uint64(progress["dirs_unmodified"]),
+                            GLib.Variant.new_int64(progress["data_blobs"]),
+                            GLib.Variant.new_int64(progress["tree_blobs"]),
+                            GLib.Variant.new_uint64(progress["total_files_processed"]),
+                            GLib.Variant.new_uint64(progress["total_bytes_processed"]),
+                            GLib.Variant.new_double(float(progress["total_duration"])),
+                            GLib.Variant.new_string(progress["snapshot_id"]),
+                            GLib.Variant.new_boolean(progress.get("dry_run", False))
+                        )
                     )
                     print()
-                    print(progress)
+                    print("Backup complete. Stats:")
+                    print(" - New files:         ", progress["files_new"])
+                    print(" - Changed files:     ", progress["files_changed"])
+                    print(" - Unmodified files:  ", progress["files_unmodified"])
+                    print(" - New folders:       ", progress["dirs_new"])
+                    print(" - Changed folders:   ", progress["dirs_changed"])
+                    print(" - Unmodified folders:", progress["dirs_unmodified"])
+                    print(" - Data blobs:        ", progress["data_blobs"])
+                    print(" - Tree blobs:        ", progress["tree_blobs"])
+                    print(" - Processed {} files of {} bytes".format(
+                        progress["total_files_processed"],
+                        progress["total_bytes_processed"]
+                    ))
+                    print(" - Snapshot ID:", progress["snapshot_id"])
+                    if progress.get("dry_run", False):
+                        print("(this was a dry run)")
                     break
         finally:
             if backup_manager.restic is not None:
