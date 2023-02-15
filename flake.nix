@@ -49,5 +49,10 @@
       igotchuu = pkgs.igotchuu;
       default = pkgs.igotchuu;
     };
+    devShells.default = pkgs.mkShell {
+      inputsFrom = [ self.packages.${system}.default ];
+      nativeBuildInputs = with pkgs; [ pyright dfeet ];
+      PIP_DISABLE_PIP_VERSION_CHECK = "true";
+    };
   }));
 }
