@@ -84,7 +84,7 @@ class DbusService:
                     object: str,
                     iface: str,
                     name: str):
-        """Mehtod for moving properties from Python Class to D-Bus"""
+        """Method for moving properties from Python Class to D-Bus"""
         py_value = self.__getattribute__(name)
         signature = self.node_info.lookup_property(name).signature
         if 'v' in signature:
