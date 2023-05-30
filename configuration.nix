@@ -135,11 +135,15 @@ in {
 
     systemd.services.igotchuu = {
       description = "a backup tool based on restic with btrfs snapshots support";
-      path = with pkgs; [ igotchuu ];
+      path = [ cfg.package pkgs.restic ];
     };
     systemd.timers.igotchuu = {
       description = config.systemd.services.igotchuu.description;
       timerConfig = cfg.timerConfig;
     };
+
+    services.dbus.packages = [ cfg.package ];
+
+    environment.systemPackages = [ cfg.package pkgs.restic ];
   };
 }
