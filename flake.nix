@@ -39,6 +39,7 @@
         };
       };
     };
+    nixosModules.default = import ./configuration.nix self.overlay;
   } // (flake-utils.lib.eachDefaultSystem (system: let
     pkgs = import nixpkgs {
       inherit system;

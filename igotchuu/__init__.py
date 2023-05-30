@@ -1,4 +1,4 @@
-# Copyright © 2022 nyantec GmbH <oss@nyantec.com>
+# Copyright © 2022-2023 nyantec GmbH <oss@nyantec.com>
 # Written by Vika Shleina <vsh@nyantec.com>
 #
 # Provided that these terms and disclaimer and all copyright notices
@@ -23,6 +23,7 @@ import argparse
 import tomllib
 import threading
 import functools
+import subprocess
 import btrfsutil
 import gi
 from gi.repository import Gio, GLib
@@ -113,7 +114,7 @@ def cli():
         prog = 'igotchuu',
         description = 'A backup software based on restic and btrfs snapshots'
     )
-    parser.add_argument('-c', '--config-file', required=True)
+    parser.add_argument('-c', '--config-file', default="/etc/igotchuu.toml")
     parser.add_argument('-v', '--verbose', action="store_true")
     args = parser.parse_args()
 
@@ -193,9 +194,8 @@ def cli():
     logind = igotchuu.idle_inhibit.Logind(dbus)
 
     with logind.inhibit("sleep:handle-lid-switch", "igotchuu", "Backup in progress", "block"):
-        if "exec_before_snapshot" in config:
+        if "exec_before_snapshot" in config and config.exec_before_snapshot is not None:
             verbose("Executing", config["exec_before_snapshot"])
-            import subprocess
             subprocess.run(config["exec_before_snapshot"])
         verbose("Creating snapshots...")
         # Create a filesystem snapshot that will be deleted later
