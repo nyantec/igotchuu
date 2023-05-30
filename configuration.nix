@@ -47,7 +47,7 @@ in {
     services.igotchuu = {
       enable = mkEnableOption "igotchuu, a backup tool based on restic with support for btrfs snapshots";
 
-      package = mkPackageOption "igotchuu" pkgs.igotchuu;
+      package = mkPackageOption pkgs "igotchuu" {};
 
       settings = mkOption {
         type = types.submodule {
@@ -128,22 +128,24 @@ in {
       };
     };
   };
-  config = mkIf cfg.enable {
-    environment.etc."igotchuu.toml".source = settingsFormat.generate "igotchuu.toml" (filterAttrs (k: v: v != null) cfg.settings);
+  config = mkMerge [
+    {
+      nixpkgs.overlays = [ overlay ];
+    }
+    (mkIf cfg.enable {
+      environment.etc."igotchuu.toml".source = settingsFormat.generate "igotchuu.toml" (filterAttrs (k: v: v != null) cfg.settings);
 
-    nixpkgs.overlays = [ overlay ];
+      systemd.services.igotchuu = {
+        description = "a backup tool based on restic with btrfs snapshots support";
+        path = [ cfg.package pkgs.restic ];
+      };
+      systemd.timers.igotchuu = {
+        description = config.systemd.services.igotchuu.description;
+        timerConfig = cfg.timerConfig;
+      };
 
-    systemd.services.igotchuu = {
-      description = "a backup tool based on restic with btrfs snapshots support";
-      path = [ cfg.package pkgs.restic ];
-    };
-    systemd.timers.igotchuu = {
-      description = config.systemd.services.igotchuu.description;
-      timerConfig = cfg.timerConfig;
-    };
-
-    services.dbus.packages = [ cfg.package ];
-
-    environment.systemPackages = [ cfg.package pkgs.restic ];
-  };
+      services.dbus.packages = [ cfg.package ];
+      environment.systemPackages = [ cfg.package pkgs.restic ];
+    })
+  ];
 }
