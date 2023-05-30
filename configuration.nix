@@ -16,7 +16,7 @@
 # damage or existence of a defect, except proven that it results out
 # of said person's immediate fault when using the work as intended.
 overlay:
-{ config, pkgs, lib, ... }:
+{ config, pkgs, lib, utils, ... }:
 with lib;
 let
   cfg = config.services.igotchuu;
