@@ -26,6 +26,7 @@ import functools
 import subprocess
 import btrfsutil
 import gi
+import unshare
 from gi.repository import Gio, GLib
 import igotchuu.idle_inhibit
 import igotchuu.glib_loop
@@ -108,7 +109,7 @@ def reexec(function):
 
     return _reexec
 
-@reexec
+#@reexec
 def cli():
     parser = argparse.ArgumentParser(
         prog = 'igotchuu',
@@ -194,6 +195,10 @@ def cli():
     logind = igotchuu.idle_inhibit.Logind(dbus)
 
     with logind.inhibit("sleep:handle-lid-switch", "igotchuu", "Backup in progress", "block"):
+        verbose("Unsharing mount namespace...")
+        unshare.unshare(unshare.CLONE_NEWNS)
+        verbose("Making / mount private...")
+        mount("none", "/", None, MountFlags.MS_PRIVATE | MountFlags.MS_REC, None)
         if "exec_before_snapshot" in config and config.exec_before_snapshot is not None:
             verbose("Executing", config["exec_before_snapshot"])
             subprocess.run(config["exec_before_snapshot"])
