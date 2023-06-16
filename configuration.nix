@@ -137,7 +137,7 @@ in {
 
       systemd.services.igotchuu = {
         description = "a backup tool based on restic with btrfs snapshots support";
-        path = [ cfg.package pkgs.restic ];
+        path = [ cfg.package pkgs.restic pkgs.openssh ];
 
         serviceConfig = {
           ExecStart = "${cfg.package}/bin/igotchuu";
