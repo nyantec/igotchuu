@@ -243,6 +243,10 @@ def cli():
                 "BackupStarted",
                 None
             )
+            progress_percentage_int = 0
+            verbose("Is stdout a tty? ", sys.stdout.isatty())
+            if not sys.stdout.isatty():
+                print("scanning...", file=sys.stderr)
             for progress in backup_manager.restic.progress_iter():
                 if progress["message_type"] == "status":
                     # Map JSON progress keys to GLib.Variant
@@ -270,18 +274,26 @@ def cli():
                             )
                         )
                     )
-                    if "seconds_remaining" not in progress and progress.get("percent_done", 0.0) < 1.0:
-                        # Scan isn't complete yet
-                        print("[scan...]", end=" ")
-                    else:
-                        print(f"[{progress['percent_done']: >7.2%}]", end=" ")
+                    if sys.stdout.isatty():
+                        if "seconds_remaining" not in progress and progress.get("percent_done", 0.0) < 1.0:
+                            # Scan isn't complete yet
+                            print("[scan...]", end=" ")
+                        else:
+                            print(f"[{progress['percent_done']: >7.2%}]", end=" ")
 
-                    print(f"{progress.get('files_done', 0)}/{progress['total_files']} files", end=", ")
-                    if "total_bytes" in progress:
-                        print(f"{progress.get('bytes_done', 0) / (1024**3):5.2f}/{progress['total_bytes'] / (1024**3):5.2f}G uploaded", end=" ")
+                        print(f"{progress.get('files_done', 0)}/{progress['total_files']} files", end=", ")
+                        if "total_bytes" in progress:
+                            print(f"{progress.get('bytes_done', 0) / (1024**3):5.2f}/{progress['total_bytes'] / (1024**3):5.2f}G uploaded", end=" ")
+                        else:
+                            print(f"{progress.get('bytes_done', 0) / (1024**3):5.2f}G uploaded", end=" ")
+                        print("\r", end="")
                     else:
-                        print(f"{progress.get('bytes_done', 0) / (1024**3):5.2f}G uploaded", end=" ")
-                    print("\r", end="")
+                        if int(progress.get("percent_done", 0.0) * 1000) > progress_percentage_int and "seconds_remaining" in progress:
+                            print(f"{progress['percent_done']: >5.1%}", end=" ", file=sys.stderr)
+                            if "total_bytes" in progress:
+                                print(f"{progress.get('bytes_done', 0) / (1024**3):5.2f}/{progress['total_bytes'] / (1024**3):5.2f}G uploaded", file=sys.stderr)
+                    if int(progress.get("percent_done", 0.0) * 1000) > progress_percentage_int and "seconds_remaining" in progress:
+                        progress_percentage_int = int(progress.get("percent_done", 0.0) * 1000)
                 elif progress["message_type"] == "error":
                     dbus.emit_signal(
                         None,
@@ -294,10 +306,11 @@ def cli():
                             GLib.Variant.new_string(progress["item"])
                         )
                     )
-                    print("")
+                    if sys.stdout.isatty():
+                        print("")
                     print("Error during {} of {}: {}".format(
                         progress["during"], progress["item"], progress["error"]
-                    ))
+                    ), file=sys.stderr)
                 elif progress["message_type"] == "summary":
                     dbus.emit_signal(
                         None,
@@ -320,7 +333,8 @@ def cli():
                             GLib.Variant.new_boolean(progress.get("dry_run", False))
                         )
                     )
-                    print()
+                    if sys.stdout.isatty():
+                        print()
                     print("Backup complete. Stats:")
                     print(" - New files:         ", progress["files_new"])
                     print(" - Changed files:     ", progress["files_changed"])
