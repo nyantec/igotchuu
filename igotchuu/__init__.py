@@ -199,7 +199,7 @@ def cli():
         unshare.unshare(unshare.CLONE_NEWNS)
         verbose("Making / mount private...")
         mount("none", "/", None, MountFlags.MS_PRIVATE | MountFlags.MS_REC, None)
-        if "exec_before_snapshot" in config and config.exec_before_snapshot is not None:
+        if "exec_before_snapshot" in config and config["exec_before_snapshot"] is not None:
             verbose("Executing", config["exec_before_snapshot"])
             subprocess.run(config["exec_before_snapshot"])
         verbose("Creating snapshots...")
