@@ -139,6 +139,9 @@ in {
         description = "a backup tool based on restic with btrfs snapshots support";
         path = [ cfg.package pkgs.restic pkgs.openssh ];
 
+        wants = [ "network-online.target" ];
+        after = [ "network-online.target" ];
+
         serviceConfig = {
           ExecStart = "${cfg.package}/bin/igotchuu";
         };
@@ -146,6 +149,8 @@ in {
       systemd.timers.igotchuu = {
         description = config.systemd.services.igotchuu.description;
         timerConfig = cfg.timerConfig;
+
+        wantedBy = [ "timers.target" ];
       };
 
       services.dbus.packages = [ cfg.package ];
