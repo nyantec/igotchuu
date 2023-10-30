@@ -1,28 +1,43 @@
 # igotchuu
 
 ## Installation
-This software requires a D-Bus policy file installed, to claim a name
-on the bus. Please refer to your distribution's documentation on how
-to properly install D-Bus policies.
+This software requires a D-Bus policy file installed, to claim a name on the
+bus. Please refer to your distribution's documentation on how to properly
+install D-Bus policies.
 
 ### On NixOS
-Assuming `igotchuu` is a flake reference to this repository:
+Assuming `igotchuu` is a flake reference to this repository.
+
+This also allows to manage igotchuu's config using NixOS and run backups from
+systemd timers.
 
 ```nix
 { config, pkgs, lib, ... }: {
-  environment.systemPackages = [
-    igotchuu.packages.${config.nixpkgs.localSystem.system}.default
-  ];
+  imports = [ igotchuu.nixosModules.default ];
   
-  services.dbus.packages = [
-    igotchuu.packages.${config.nixpkgs.localSystem.system}.default
-  ];
+  services.igotchuu = {
+    enable = true;
+
+	settings = {
+      places = [ "/home" "/var/lib" ];
+	  restic_args = [
+        "-x" "--exclude-caches"
+        "--repo=sftp://example.com/backups"
+        "--password-file=/root/restic-password"
+      ];
+	};
+	# Default is to run daily backups at midnight.
+	# Use `timerConfig` to change that.
+    timerConfig = {
+      OnCalendar = "weekly";
+    };
+  };
 }
 ```
 
 ## Usage
-This software makes several assumptions about your system
-installation, particularly the filesystem organization:
+This software makes several assumptions about your system installation,
+particularly the filesystem organization:
 
 1. `/` is a Btrfs filesystem/subvolume
 2. `/home` is a Btrfs subvolume on the same filesystem as `/`
@@ -43,7 +58,7 @@ The config file is a TOML file. Example:
 # and you need to mount your subvolume somewhere to create snapshots.
 exec_before_snapshot = ["mount", "/dev/mapper/root", "/mnt", "-o", "subvol=5"]
 # Prepends a prefix to all snapshot paths. This is useful if you want your
-snapshots to be contained elsewhere. This must not have a trailing slash.
+# snapshots to be contained elsewhere. This must not have a trailing slash.
 snapshot_prefix = "/mnt/snapshots"
 # Places you want to back up.
 places = ["/home", "/var/lib"]
@@ -91,26 +106,61 @@ and stop an ongoing backup.
     <interface name="com.nyantec.igotchuu1">
         <method name="Stop"></method>
 
-        <signal name="Error"></signal>
-
         <signal name="BackupStarted"></signal>
 
+        <!-- Signal payload mirrors structs found in Restic's source code
+             https://github.com/restic/restic/blob/master/internal/ui/backup/json.go
+          -->
         <signal name="Progress">
-            <arg name="json_data" type="s"/>
+            <arg name="seconds_elapsed" type="t" />   <!-- uint64 -->
+            <arg name="seconds_remaining" type="t" />
+            <arg name="percent_done" type="d" />      <!-- float64 -->
+            <arg name="total_files" type="t" />
+            <arg name="files_done" type="t" />
+            <arg name="total_bytes" type="t" />
+            <arg name="bytes_done" type="t" />
+            <arg name="error_count" type="t" />       <!-- uint -->
+            <arg name="current_files" type="as" />    <!-- []string -->
         </signal>
-
-        <signal name="BackupComplete"></signal>
+        <signal name="BackupComplete">
+            <arg name="files_new" type="t" />
+            <arg name="files_changed" type="t" />
+            <arg name="files_unmodified" type="t" />
+            <arg name="dirs_new" type="t" />
+            <arg name="dirs_changed" type="t" />
+            <arg name="dirs_unmodified" type="t" />
+            <arg name="data_blobs" type="x" />        <!-- int -->
+            <arg name="tree_blobs" type="x" />
+            <arg name="data_added" type="t" />
+            <arg name="total_files_processed" type="t" />
+            <arg name="total_bytes_processed" type="t" />
+            <arg name="total_duration" type="d" />
+            <arg name="snapshot_id" type="s" />       <!-- string -->
+            <arg name="dry_run" type="b" />           <!-- bool -->
+        </signal>
+        <signal name="Error">
+            <arg name="error" type="s" />               <!-- error -->
+            <arg name="during" type="s" />
+            <arg name="item" type="s" />
+        </signal>
     </interface>
 </node>
 ```
 
 ## TODOs
- - [ ] Make restic invocation arguments configurable
- - [ ] Consider using `btrfsutil` Python package instead of shelling out
+ - [x] Make restic invocation arguments configurable
+ - [x] Consider using `btrfsutil` Python package instead of shelling out
  - [ ] Consider abstracting filesystem snapshotting and preparation
-   - [ ] Handle cases where `/` is a `tmpfs` and `/home` is a btrfs subvolume
+   - [x] Handle cases where `/` is a `tmpfs` and `/home` is a btrfs subvolume
+     - snapshot locations can be overridden using `snapshot_location` config
+       option, to save snapshots under a different directory
+     - `exec_before_snapshot` runs in the target mount namespace, this can be
+       used to mount a btrfs subvolume for snapshot storage
+   - [x] Consider allowing running a subprocess to prepare the filesystem
    - [ ] Handle ZFS subvolumes
-   - [ ] Consider allowing running a subprocess to prepare the filesystem
- - [ ] Make signals carry typed data instead of JSON strings
+ - [x] Make signals carry typed data instead of JSON strings
  - [ ] Consider running as a daemon, to allow for triggering on-demand backups
+   - Is this really needed with systemd services?
  - [ ] Consider providing an example systemd service configuration
+ - [ ] Consider creating a GUI to monitor backup progress instead of relying on
+       logs and manually reading the firehose it outputs to D-Bus 

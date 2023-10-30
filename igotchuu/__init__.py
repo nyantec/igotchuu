@@ -42,7 +42,6 @@ class DBusBackupManagerInterface(igotchuu.dbus_service.DbusService):
     <node name="/com/nyantec/igotchuu">
         <interface name="com.nyantec.igotchuu1">
             <method name="Stop"></method>
-            <signal name="Error"></signal>
             <signal name="BackupStarted"></signal>
             <!-- Signal payload mirrors structs found in Restic's source code
                  https://github.com/restic/restic/blob/master/internal/ui/backup/json.go
@@ -92,24 +91,7 @@ class DBusBackupManagerInterface(igotchuu.dbus_service.DbusService):
         if self.restic is not None:
             self.restic.terminate()
 
-def reexec(function):
-    @functools.wraps(function)
-    def _reexec(*args, **kwargs):
-        if os.environ.get("_REEXEC") != "done":
-            print("argv:", sys.argv, file=sys.stderr)
-            os.execvpe(
-                "unshare",
-                ["unshare", "-m", *sys.argv],
-                {"_REEXEC": "done", **os.environ}
-            )
-            print("Failed to re-exec")
-            exit(1)
-        else:
-            function(*args, **kwargs)
 
-    return _reexec
-
-#@reexec
 def cli():
     parser = argparse.ArgumentParser(
         prog = 'igotchuu',
