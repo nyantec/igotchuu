@@ -1,9 +1,23 @@
-{ lib, python3Packages, poetry2nix, wrapGAppsHook, gobject-introspection, restic }:
+{ lib, nix-gitignore, python3Packages, wrapGAppsHook, gobject-introspection, restic }:
+let
+  cleanSources = { src }:
+  let
+    nixFilter = name: type: ! (
+      (type == "regular" && lib.strings.hasSuffix ".nix" name)
+    );
+  in lib.cleanSourceWith {
+    filter = lib.cleanSourceFilter;
+    src = lib.cleanSourceWith {
+      filter = nix-gitignore.gitignoreFilterPure nixFilter [ ./.gitignore ] src;
+      inherit src;
+    };
+  };
+in
 python3Packages.buildPythonApplication {
   name = "igotchuu";
   version = "0.1.0";
 
-  src = poetry2nix.cleanPythonSources {
+  src = cleanSources {
     src = ./.;
   };
 
