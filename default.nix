@@ -24,7 +24,7 @@ python3Packages.buildPythonApplication {
   buildInputs = [ gobject-introspection ];
   nativeBuildInputs = [ wrapGAppsHook ];
   propagatedBuildInputs = with python3Packages; [
-    pygobject3 btrfsutil python-unshare
+    pygobject3 btrfsutil python-unshare click
   ];
 
   # There are no tests for now
