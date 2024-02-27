@@ -76,17 +76,26 @@ in {
                 Places to backup (and snapshot if `snapshot` is unset).
               '';
             };
-            restic_args = lib.mkOption {
+            restic_backup_args = lib.mkOption {
               type = types.listOf types.str;
               default = ["-x" "--exclude-caches"];
               example = [
                 "-x" "--exclude-caches"
-                "--repo=sftp://rsync.net/restic-backups"
-                "--password-file=/root/restic-password"
                 "--exclude-file=/root/exclude.txt"
               ];
               description = mdDoc ''
-                Options to pass to the restic invocation.
+                Options to pass to the `restic backup` invocation.
+              '';
+            };
+            restic_args = lib.mkOption {
+              type = types.listOf types.str;
+              default = [];
+              example = [
+                "--repo=sftp://rsync.net/restic-backups"
+                "--password-file=/root/restic-password"
+              ];
+              description = mdDoc ''
+                Options to pass to all restic commands.
               '';
             };
             snapshot_prefix = lib.mkOption {
@@ -143,7 +152,7 @@ in {
         after = [ "network-online.target" ];
 
         serviceConfig = {
-          ExecStart = "${cfg.package}/bin/igotchuu";
+          ExecStart = "${cfg.package}/bin/igotchuu backup";
         };
       };
       systemd.timers.igotchuu = {

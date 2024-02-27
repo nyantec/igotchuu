@@ -94,7 +94,7 @@ class DBusBackupManagerInterface(igotchuu.dbus_service.DbusService):
 
 
 @click.group(invoke_without_command=True)
-@click.option('-c', '--config-file', type=click.File(mode='rb'), required=False)
+@click.option('-c', '--config-file', type=click.File(mode='rb'), required=False, default="/etc/igotchuu.toml")
 @click.option('-v', '--verbose', type=bool, required=False, default=False, is_flag=True)
 @click.version_option()
 @click.pass_context
@@ -125,8 +125,10 @@ def cli(ctx, config_file=None, verbose=False):
     ctx.obj = config
 
     if ctx.invoked_subcommand is None:
-        cli_backup(ctx)
-    
+        click.echo("WARNING: running igotchuu without arguments is deprecated.", err=True)
+        cli_backup_inner(ctx)
+
+
 @cli.command('mount')
 @click.argument('target', type=click.Path(exists=True, dir_okay=True, file_okay=False, readable=True, executable=True))
 @click.pass_context
@@ -145,7 +147,12 @@ def cli_mount(ctx, target):
     os.execvpe("restic", ["restic", *extra_args, "mount", "--allow-other", target], env=env)
 
 
+@cli.command('backup')
+@click.pass_context
 def cli_backup(ctx):
+    return cli_backup_inner(ctx)
+
+def cli_backup_inner(ctx):
     config = ctx.obj
 
     def verbose(*arguments, **kwargs):
@@ -388,3 +395,4 @@ def cli_backup(ctx):
                 )
                 btrfsutil.delete_subvolume(snapshot_path)
             Gio.bus_unown_name(name)
+            glib_main_loop.quit()
