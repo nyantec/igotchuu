@@ -20,11 +20,11 @@ systemd timers.
 
 	settings = {
       places = [ "/home" "/var/lib" ];
-	  restic_args = [
+	  restic_backup_args = [
         "-x" "--exclude-caches"
-        "--repo=sftp://example.com/backups"
-        "--password-file=/root/restic-password"
       ];
+      repo = "sftp://example.com/backups";
+      password_file = "/root/restic-password";
 	};
 	# Default is to run daily backups at midnight.
 	# Use `timerConfig` to change that.
@@ -63,16 +63,26 @@ snapshot_prefix = "/mnt/snapshots"
 # Places you want to back up.
 places = ["/home", "/var/lib"]
 
-# Arguments that will be passed to Restic.
+# Arguments that will be passed to `restic backup`.
 #
 # `--one-file-system` is heavily recommended due to how igotchuu works with
 # subvolumes. In theory, if you need to back up a tree composed of several
 # filesystems, you should be able to list them all in `places` so they will
 # also be snapshotted.
-restic_args = [
+restic_backup_args = [
 	"--one-file-system", "--exclude-caches",
 	"--exclude-file=/etc/igotchuu/exclude.txt"
 ]
+
+# Arguments for backup target.
+repo = "sftp://your.host/folder"
+# or:
+repository_file = "/root/restic-target"
+
+password_file = "/root/restic-password"
+# or:
+password_command = "pass show restic"
+
 # Snapshots that will be created and bind-mounted over your root hierarchy.
 # If not set, defaults to the value of `places`.
 #

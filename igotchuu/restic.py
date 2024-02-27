@@ -22,14 +22,25 @@ import json
 
 class Restic(subprocess.Popen):
     @classmethod
-    def backup(cls, places=[], extra_args=[], env=os.environ, **kwargs):
+    def backup(
+            cls, places=[], extra_args=[], env=dict(os.environ),
+            repo=None, password_file=None, repository_file=None, password_command=None,
+            **kwargs
+    ):
+        if repo is not None:
+            env["RESTIC_REPOSITORY"] = repo
+        if password_file is not None:
+            env['RESTIC_PASSWORD_FILE'] = password_file
+        if repository_file is not None:
+            env['RESTIC_REPOSITORY_FILE'] = repository_file
+        if password_command is not None:
+            env['RESTIC_PASSWORD_COMMAND'] = password_command
+
+        env["RESTIC_PROGRESS_FPS"] = "4"
+
         return cls(
             args=["restic", "backup", *extra_args, "--json", "--", *places],
-            stdout=subprocess.PIPE,
-            #stdin=subprocess.DEVNULL,
-            text=True,
-            env={"RESTIC_PROGRESS_FPS": "4", **env},
-            **kwargs
+            stdout=subprocess.PIPE, text=True, env=env, **kwargs
         )
 
     def progress_iter(self):

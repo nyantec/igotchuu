@@ -30,3 +30,6 @@ class GLibMainLoopThread(threading.Thread):
 
     def run(self):
         self.mainloop.run()
+
+    def quit(self):
+        self.mainloop.quit()

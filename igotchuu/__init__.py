@@ -27,6 +27,7 @@ import subprocess
 import btrfsutil
 import gi
 import unshare
+import click
 from gi.repository import Gio, GLib
 import igotchuu.idle_inhibit
 import igotchuu.glib_loop
@@ -92,26 +93,18 @@ class DBusBackupManagerInterface(igotchuu.dbus_service.DbusService):
             self.restic.terminate()
 
 
-def cli():
-    parser = argparse.ArgumentParser(
-        prog = 'igotchuu',
-        description = 'A backup software based on restic and btrfs snapshots'
-    )
-    parser.add_argument('-c', '--config-file', default="/etc/igotchuu.toml")
-    parser.add_argument('-v', '--verbose', action="store_true")
-    args = parser.parse_args()
-
-    def verbose(*arguments, **kwargs):
-        if args.verbose:
-            print(*arguments, **kwargs, file=sys.stderr)
-
+@click.group(invoke_without_command=True)
+@click.option('-c', '--config-file', type=click.File(mode='rb'), required=False)
+@click.option('-v', '--verbose', type=bool, required=False, default=False, is_flag=True)
+@click.version_option()
+@click.pass_context
+def cli(ctx, config_file=None, verbose=False):
     config = {
         "places": ["/home"], "snapshot": ["/home"],
         "restic_args": ["-x", "--exclude-caches"]
     }
-    if "config_file" in args:
-        with open(args.config_file, "rb") as f:
-            config = tomllib.load(f)
+    if config_file is not None:
+        config = tomllib.load(config_file)
         if "places" not in config:
             config["places"] = ["/home"]
         if "snapshot" not in config:
@@ -127,13 +120,48 @@ def cli():
                 if snapshot["source"][0] != "/":
                     print("Error: snapshot source paths must be absolute, got", snapshot["source"])
                     exit(1)
-        verbose("Acquired config:", config)
+
+    config["verbose"] = verbose
+    ctx.obj = config
+
+    if ctx.invoked_subcommand is None:
+        cli_backup(ctx)
+    
+@cli.command('mount')
+@click.argument('target', type=click.Path(exists=True, dir_okay=True, file_okay=False, readable=True, executable=True))
+@click.pass_context
+def cli_mount(ctx, target):
+    env = dict(os.environ)
+    config = ctx.obj
+    if config.get("repo") is not None:
+        env['RESTIC_REPOSITORY'] = config['repo']
+    if config.get("password_file") is not None:
+        env['RESTIC_PASSWORD_FILE'] = config['password_file']
+    if config.get("repository_file") is not None:
+        env['RESTIC_REPOSITORY_FILE'] = config['repository_file']
+    if config.get("password_command") is not None:
+        env['RESTIC_PASSWORD_COMMAND'] = config['password_command']
+    extra_args = config.get("restic_args", [])
+    os.execvpe("restic", ["restic", *extra_args, "mount", "--allow-other", target], env=env)
+
+
+def cli_backup(ctx):
+    config = ctx.obj
+
+    def verbose(*arguments, **kwargs):
+        if config.get("verbose", False):
+            click.echo(" ".join(map(str, arguments)), **kwargs, err=True)
+
+    verbose("Acquired config:", config)
 
     bus_ready_barrier = threading.Barrier(2)
     name_acquired = False
     backup_manager = None
 
     verbose("Preparing for backup...")
+    glib_main_loop = igotchuu.glib_loop.GLibMainLoopThread()
+    verbose("Starting glib main loop...")
+    glib_main_loop.start()
 
     def on_bus_acquired(dbus, name):
         verbose("Acquired DBus connection:", dbus, name)
@@ -156,11 +184,8 @@ def cli():
                 backup_manager.unregister()
                 backup_manager = None
         else:
-            print("Cannot acquire name on the bus.", file=sys.stderr)
-            sys.exit(1)
-
-    verbose("Starting glib main loop...")
-    igotchuu.glib_loop.GLibMainLoopThread().start()
+            click.echo("Cannot acquire name on the bus.", err=True)
+            bus_ready_barrier.wait()
 
     name = Gio.bus_own_name(
         Gio.BusType.SYSTEM, "com.nyantec.IGotChuu",
@@ -171,6 +196,8 @@ def cli():
     )
     verbose("Waiting for bus name to be acquired...")
     bus_ready_barrier.wait()
+    if not name_acquired:
+        exit(1)
     # Retrieve the D-Bus connection again
     # Should be a singleton anyway
     dbus = Gio.bus_get_sync(Gio.BusType.SYSTEM)
@@ -217,7 +244,14 @@ def cli():
                 mount(snapshot_path, place["source"], flags=MountFlags.MS_BIND)
             verbose("Running restic...")
 
-            backup_manager.restic = Restic.backup(places=config["places"], extra_args=config.get("restic_args", []))
+            backup_manager.restic = Restic.backup(
+                places=config["places"],
+                extra_args=config.get("restic_backup_args", []) + config.get("restic_args", []),
+                repo=config.get("repo", None),
+                repository_file=config.get("repository_file", None),
+                password_command=config.get("password_command", None),
+                password_file=config.get("password_file", None)
+            )
             dbus.emit_signal(
                 None,
                 "/com/nyantec/igotchuu",
