@@ -151,6 +151,8 @@ in {
         wants = [ "network-online.target" ];
         after = [ "network-online.target" ];
 
+        environment = { XDG_CACHE_HOME = "/root/.cache"; };
+
         serviceConfig = {
           ExecStart = "${cfg.package}/bin/igotchuu backup";
         };
