@@ -105,5 +105,5 @@ class DbusService:
         self.__setattr__(name, value.unpack())
         return True
 
-    def unregister(self):
+    def __del__(self):
         return self.con.unregister_object(self.registration_id)
