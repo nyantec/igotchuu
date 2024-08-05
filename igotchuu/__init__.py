@@ -96,9 +96,10 @@ class DBusBackupManagerInterface(igotchuu.dbus_service.DbusService):
 @click.group(invoke_without_command=True)
 @click.option('-c', '--config-file', type=click.File(mode='rb'), required=False, default="/etc/igotchuu.toml")
 @click.option('-v', '--verbose', type=bool, required=False, default=False, is_flag=True)
+@click.option('-p', '--profile', type=str, required=False, default=None)
 @click.version_option()
 @click.pass_context
-def cli(ctx, config_file=None, verbose=False):
+def cli(ctx, config_file=None, verbose=False, profile=None):
     config = {
         "places": ["/home"], "snapshot": ["/home"],
         "restic_args": ["-x", "--exclude-caches"]
@@ -122,6 +123,10 @@ def cli(ctx, config_file=None, verbose=False):
                     exit(1)
 
     config["verbose"] = verbose
+    if profile is not None:
+        # TODO: figure out recursive updates?
+        config.update(config["profiles"][profile])
+    del config["profiles"]
     ctx.obj = config
 
     if ctx.invoked_subcommand is None:
