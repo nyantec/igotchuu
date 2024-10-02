@@ -126,7 +126,8 @@ def cli(ctx, config_file=None, verbose=False, profile=None):
     if profile is not None:
         # TODO: figure out recursive updates?
         config.update(config["profiles"][profile])
-    del config["profiles"]
+    if "profiles" in config:
+        del config["profiles"]
     ctx.obj = config
 
     if ctx.invoked_subcommand is None:
