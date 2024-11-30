@@ -57,7 +57,7 @@ in {
             exec_before_snapshot = lib.mkOption {
               type = types.nullOr (types.listOf types.str);
               default = null;
-              description = mdDoc ''
+              description = ''
                 A program to execute in a mount namespace right before
                 snapshotting.
 
@@ -72,7 +72,7 @@ in {
               type = types.listOf types.str;
               default = ["/home"];
               example = ["/home" "/var/lib"];
-              description = mdDoc ''
+              description = ''
                 Places to backup (and snapshot if `snapshot` is unset).
               '';
             };
@@ -83,7 +83,7 @@ in {
                 "-x" "--exclude-caches"
                 "--exclude-file=/root/exclude.txt"
               ];
-              description = mdDoc ''
+              description = ''
                 Options to pass to the `restic backup` invocation.
               '';
             };
@@ -94,7 +94,7 @@ in {
                 "--repo=sftp://rsync.net/restic-backups"
                 "--password-file=/root/restic-password"
               ];
-              description = mdDoc ''
+              description = ''
                 Options to pass to all restic commands.
               '';
             };
@@ -111,7 +111,7 @@ in {
                 "/home/user"
                 { source = "/var"; snapshot_location = "/mnt/var"; }
               ];
-              description = mdDoc ''
+              description = ''
                 List of subvolumes to snapshot, in case it should be different
                 from `places`.
 
@@ -127,7 +127,7 @@ in {
         default = {
           OnCalendar = "daily";
         };
-        description = lib.mdDoc ''
+        description = ''
           When to run the backup. See {manpage}`systemd.timer(5)` for details.
         '';
         example = {
