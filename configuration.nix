@@ -50,6 +50,7 @@ in {
       package = mkPackageOption pkgs "igotchuu" {};
 
       settings = mkOption {
+        description = "igotchuu settings.";
         type = types.submodule {
           freeformType = settingsFormat.type;
 
