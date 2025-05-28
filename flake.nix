@@ -6,9 +6,12 @@
 
   outputs = { self, nixpkgs, flake-utils }: {
     overlay = final: prev: {
-      igotchuu = final.callPackage ./default.nix {
-        python3Packages = final.python311Packages;
-      };
+      pythonPackagesExtensions = (prev.pythonPackagesExtensions or []) ++ [
+        (final': prev': {
+          python-unshare = final'.callPackage ./python-unshare.nix {};
+        })
+      ];
+      igotchuu = final.callPackage ./default.nix {};
     };
     nixosModules.default = import ./configuration.nix self.overlay;
   } // (flake-utils.lib.eachDefaultSystem (system: let
