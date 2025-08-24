@@ -16,11 +16,13 @@ in
 python3Packages.buildPythonApplication {
   name = "igotchuu";
   version = "0.1.0";
+  pyproject = true;
 
   src = cleanSources {
     src = ./.;
   };
 
+  build-system = with python3Packages; [ setuptools ];
   buildInputs = [ gobject-introspection ];
   nativeBuildInputs = [ wrapGAppsHook ];
   propagatedBuildInputs = with python3Packages; [
