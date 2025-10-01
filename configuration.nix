@@ -152,7 +152,12 @@ in {
         wants = [ "network-online.target" ];
         after = [ "network-online.target" ];
 
-        environment = { XDG_CACHE_HOME = "/root/.cache"; };
+        environment = {
+          # Persistent cache speeds up backups.
+          XDG_CACHE_HOME = "/root/.cache";
+          # Reduce memory usage to ~120% index size per https://github.com/restic/restic/issues/2519
+          GOGC = "20";
+        };
 
         serviceConfig = {
           ExecStart = "${cfg.package}/bin/igotchuu backup";
