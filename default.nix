@@ -1,4 +1,4 @@
-{ lib, nix-gitignore, python3Packages, wrapGAppsHook, gobject-introspection, restic }:
+{ lib, nix-gitignore, python3Packages, wrapGAppsHook4, gobject-introspection, restic }:
 let
   cleanSources = { src }:
   let
@@ -24,7 +24,7 @@ python3Packages.buildPythonApplication {
 
   build-system = with python3Packages; [ setuptools ];
   buildInputs = [ gobject-introspection ];
-  nativeBuildInputs = [ wrapGAppsHook ];
+  nativeBuildInputs = [ wrapGAppsHook4 ];
   propagatedBuildInputs = with python3Packages; [
     pygobject3 btrfsutil python-unshare click
   ];
